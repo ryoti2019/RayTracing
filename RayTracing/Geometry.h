@@ -137,3 +137,10 @@ struct Rect {
 	void Draw(Vector2& offset);//自分の矩形を描画する(オフセット付き)
 };
 
+// 平面構造体
+struct Plane {
+	// 法線ベクトル
+	Vector3 N;
+	// 原点からのオフセット
+	float offset;
+};
