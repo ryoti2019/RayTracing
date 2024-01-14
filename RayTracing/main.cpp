@@ -92,7 +92,7 @@ float Saturate(float val)
 	return clamp(val, 0.0f, 1.0f);
 }
 
-// Colorを0～1にする
+// Colorは色を0～1で表す
 using Color = Vector3;
 Color
 GetCheckerColor(const Position3& pos) {
@@ -121,14 +121,15 @@ GetCheckerColor(const Position3& pos) {
 }
 
 Color
-GetImageColor(const Position3& pos,int handle,float scale=1.0f) {
+GetImageColor(const Position3& pos, int handle, float scale = 3.0f) {
+
 	int x = pos.x / scale;
 	int y = pos.z / scale;
 
 	bool minus = y < 0;
 
 	int w, h;
-	GetSoftImageSize(handle,&w,&h);
+	GetSoftImageSize(handle, &w, &h);
 
 	float r, g, b, a;
 	x = abs(x);
@@ -187,8 +188,9 @@ void RayTracing(const Position3& eye, const Sphere& sphere, const Plane& plane) 
 
 				if (IsHitRayAndObject(hitPos, refRay, plane, t))
 				{
-					auto pos = hitPos + refRay * t;
-					auto refCol = GetCheckerColor(pos);
+					auto pos = hitPos + refRay * t;	// 床の座標
+					//auto refCol = GetCheckerColor(pos);
+					auto refCol = GetImageColor(pos,imgHandle);
 					col = col * (1.0f - reflectivity) + refCol * reflectivity;
 				}
 
@@ -204,36 +206,43 @@ void RayTracing(const Position3& eye, const Sphere& sphere, const Plane& plane) 
 			// 平面との当たり判定
 			else if (IsHitRayAndObject(eye, ray, plane, t))
 			{
+				// 交点PはP = P0 + Vt
+				// P = eye + ray * t
 				auto pos = eye + ray * t;// 交点の座標
-				auto col = GetCheckerColor(pos);
+				//auto col = GetCheckerColor(pos);
+				auto col = GetImageColor(pos,imgHandle);
 
 				//①床と視線の交点を求める
-				//②
+				//②そこから、光線ベクトルの逆ベクトルを飛ばす
+				//③交点と逆光ベクトルを用いてさらにレイトレする
+				//　(球体と交点を持つかチェック)
+				//④球体と当たってたら暗くする
+				//color *= 0.5
 
 				if (IsHitRayAndObject(pos, -light, sphere, t))
 				{
-					col *= 0.5;
+					col *= 0.5f;
 				}
 
 				DrawPixel(x, y, GetColor(col.x * 255, col.y * 255, col.z * 255));
 			}
 			else {
 				int b = ((x / 32 + y / 32) % 2) * 255;
-				//DrawPixel(x, y, GetColor(0, b, 0));
+				DrawPixel(x, y, GetColor(0, b, 0));
 			}
 		}
 	}
 }
 
-int WINAPI WinMain(HINSTANCE , HINSTANCE, LPSTR , int) {
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ChangeWindowMode(true);
 	SetGraphMode(screen_width, screen_height, 32);
 	SetMainWindowText(_T("2216008_寺師遼"));
 	DxLib_Init();
-	imgHandle = LoadSoftImage("");
+	imgHandle = LoadSoftImage("img/dog.png");
 	Plane plane = { {0.0f,1.0f,0.0f},-100.0f };
 
-	RayTracing(Vector3(0, 0, 300), Sphere(100, Position3(0, 0, -100)),plane);
+	RayTracing(Vector3(0, 0, 300), Sphere(100, Position3(0, 0, -100)), plane);
 
 	WaitKey();
 	DxLib_End();
