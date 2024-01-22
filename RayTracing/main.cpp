@@ -242,7 +242,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	imgHandle = LoadSoftImage("img/dog.png");
 	Plane plane = { {0.0f,1.0f,0.0f},-100.0f };
 
-	RayTracing(Vector3(0, 0, 300), Sphere(100, Position3(0, 0, -100)), plane);
+	RayTracing(Vector3(0, 0, 300), Sphere( Position3(0, 0, -100),100 ), plane);
 
 	WaitKey();
 	DxLib_End();

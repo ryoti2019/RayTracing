@@ -99,15 +99,6 @@ struct Circle {
 	Circle(float r, Position2& p) :radius(r), pos(p) {}
 };
 
-
-///球を表す構造体
-struct Sphere {
-	float radius;//半径
-	Position3 pos; //中心座標
-	Sphere() :radius(0), pos(0, 0,0) {}
-	Sphere(float r, Position3& p) :radius(r), pos(p) {}
-};
-
 ///矩形を表す構造体
 struct Rect {
 	Position2 pos; //中心座標
@@ -137,10 +128,41 @@ struct Rect {
 	void Draw(Vector2& offset);//自分の矩形を描画する(オフセット付き)
 };
 
+// レイ(直線)を表す構造体
+struct Ray {
+	Position3 pos;	// レイの開始地点
+	Vector3 vec;	// ベクトルの向き
+};
+
+// 物体の親クラス
+struct Primitive {
+	/// <summary>
+	/// その物体とレイの当たり判定を行う
+	/// </summary>
+	/// <param name="ray">光線</param>
+	/// <param name="t">光線の開始点から交点までの距離</param>
+	/// <returns>当たったかどうか</returns>
+	virtual bool IsHit(const Ray& ray, float& t) = 0;
+};
+
+///球を表す構造体
+struct Sphere {
+	float radius;//半径
+	Position3 pos; //中心座標
+	Sphere() :radius(0), pos(0, 0, 0) {}
+	Sphere(const Position3& p, float r) :radius(r), pos(p) {}
+	virtual bool IsHit(const Ray& ray, float& t)const override;
+};
+
 // 平面構造体
-struct Plane {
+struct Plane : public Primitive{
 	// 法線ベクトル
 	Vector3 N;
 	// 原点からのオフセット
 	float offset;
+
+	Plane() : N(0, 1, 0), offset(0.0f);
+	Plane(const ) : N(0, 1, 0), offset(0.0f);
+
+	bool IsHit(const Ray& ray, float& t)const;
 };
