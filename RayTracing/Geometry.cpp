@@ -181,15 +181,15 @@ bool Sphere::IsHit(const Ray& ray, float& t) const
 	//レイが正規化済みである前提で…
 	//
 	//視点から球体中心へのベクトル(視線)を作ります
-	Vector3 C = sp.pos - eye;
+	Vector3 C = pos - ray.pos;
 
 	//②①で作ったCとrayの内積をとります
 	//中心から視線への内積をとります＝＞ベクトル長
-	float d = Dot(C, ray);
+	float d = Dot(C, ray.vec);
 	t = d;
 
 	//③視線ベクトルとベクトル長をかけて、中心からの垂線下した点を求めます
-	Vector3 V = ray * d;
+	Vector3 V = ray.vec * d;
 
 	//④中心ベクトルCから③で求めたベクトルVをひいて、垂線ベクトルWを求めます
 	Vector3 W = C - V;
@@ -197,18 +197,33 @@ bool Sphere::IsHit(const Ray& ray, float& t) const
 	//⑥三平方の定理により
 	//斜辺＝半径^2＝垂線^2＋めりこみ^2
 	//知りたいのはめり込み量＝s s＝sqrtf(半径^2ー垂線^2）
-	float s = sqrtf(sp.radius * sp.radius - W.SQLength());
+	float s = sqrtf(radius * radius - W.SQLength());
 	t -= s;
 
 	//⑤Wの大きさをLength()関数で取得し、それを球の半径radiusと比較して
 	//W.Length()が半径以内だったら当たっているからtrueならfalseを返す
-	return W.Length() <= sp.radius;
+	return W.Length() <= radius;
 
 }
 
 bool Plane::IsHit(const Ray& ray, float& t) const
 {
-	return false;
+
+	// 当たらない条件
+	// レイのベクトルと法線ベクトルのなす角度が
+	// 90°未満であること
+	auto dotRayAndN = Dot(ray.vec, N);
+	if (dotRayAndN >= 0.0f)
+	{
+		return false;
+	}
+
+	// 当たる場合は、交点までの距離を求める
+	// t=(d-P0・N)/(V・N)
+	t = (offset - Dot(ray.pos, N)) / dotRayAndN;
+
+	return true;
+
 }
 
 

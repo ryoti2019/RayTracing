@@ -134,6 +134,18 @@ struct Ray {
 	Vector3 vec;	// ベクトルの向き
 };
 
+enum class Pattern {
+	none,
+	hstripe,
+	vstripe,
+	checker,
+	texture
+};
+
+struct Material {
+
+};
+
 // 物体の親クラス
 struct Primitive {
 	/// <summary>
@@ -142,11 +154,11 @@ struct Primitive {
 	/// <param name="ray">光線</param>
 	/// <param name="t">光線の開始点から交点までの距離</param>
 	/// <returns>当たったかどうか</returns>
-	virtual bool IsHit(const Ray& ray, float& t) = 0;
+	virtual bool IsHit(const Ray& ray, float& t)const = 0;
 };
 
 ///球を表す構造体
-struct Sphere {
+struct Sphere : public Primitive {
 	float radius;//半径
 	Position3 pos; //中心座標
 	Sphere() :radius(0), pos(0, 0, 0) {}
@@ -161,8 +173,8 @@ struct Plane : public Primitive{
 	// 原点からのオフセット
 	float offset;
 
-	Plane() : N(0, 1, 0), offset(0.0f);
-	Plane(const ) : N(0, 1, 0), offset(0.0f);
+	Plane() : N(0, 1, 0), offset(0.0f){}
+	Plane(const Vector3& inN,float ofst) : N(0, 1, 0), offset(ofst){}
 
 	bool IsHit(const Ray& ray, float& t)const;
 };
