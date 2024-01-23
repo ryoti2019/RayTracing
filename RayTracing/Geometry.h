@@ -146,7 +146,7 @@ struct Primitive {
 };
 
 ///球を表す構造体
-struct Sphere {
+struct Sphere : public Primitive{
 	float radius;//半径
 	Position3 pos; //中心座標
 	Sphere() :radius(0), pos(0, 0, 0) {}
