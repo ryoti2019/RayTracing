@@ -206,6 +206,11 @@ bool Sphere::IsHit(const Ray& ray, float& t) const
 
 }
 
+Color Sphere::GetColorAtPosition(const Position3& pos)
+{
+	return Color();
+}
+
 bool Plane::IsHit(const Ray& ray, float& t) const
 {
 
@@ -226,4 +231,7 @@ bool Plane::IsHit(const Ray& ray, float& t) const
 
 }
 
-
+Color Plane::GetColorAtPosition(const Position3& pos)
+{
+	return Color();
+}

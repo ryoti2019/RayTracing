@@ -247,6 +247,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	SetMainWindowText(_T("2216008_Ž›Žt—É"));
 	DxLib_Init();
 	imgHandle = LoadSoftImage("img/dog.png");
+	Sphere sphere (Position3(0, 0, -100),100);
+	sphere material.color = {1.0f,0.0f,0.0f};
+	sphere material.ambient = 0.2f;
+	sphere material.specular = 1.0f;
+	sphere material.speqularity = 20.0f;
+	sphere material.
+
 	Plane plane = { {0.0f,1.0f,0.0f},-100.0f };
 
 	RayTracing(Vector3(0, 0, 300), Sphere(Position3(0, 0, -100), 100), plane);

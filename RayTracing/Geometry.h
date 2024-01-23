@@ -135,19 +135,32 @@ struct Ray {
 };
 
 enum class Pattern {
-	none,
-	hstripe,
+	none,	//一色
+	hstripe,	// 水平綺模様
 	vstripe,
 	checker,
 	texture
 };
 
-struct Material {
+// Colorは色を0～1で表す
+using Color = Vector3;
+Color;
 
+struct Material {
+	Color color;	// 基本色
+	Color subColor;	// 副基本色
+	float ambient;	// 環境光
+	float speqular;	// スペキュラ
+	float speqularity;	// スペキュラ強さ
+	float reflectiveity;	// 反射率
+	Pattern pattern;	// 模様
+	Size patternSize; //模様サイズ
+	int textHandle; //ハンドル
 };
 
 // 物体の親クラス
-struct Primitive {
+struct Primitive{
+	Material material;
 	/// <summary>
 	/// その物体とレイの当たり判定を行う
 	/// </summary>
@@ -155,6 +168,7 @@ struct Primitive {
 	/// <param name="t">光線の開始点から交点までの距離</param>
 	/// <returns>当たったかどうか</returns>
 	virtual bool IsHit(const Ray& ray, float& t)const = 0;
+	virtual Color GetColorAtPosition(const Position3& pos) = 0;
 };
 
 ///球を表す構造体
@@ -164,6 +178,7 @@ struct Sphere : public Primitive {
 	Sphere() :radius(0), pos(0, 0, 0) {}
 	Sphere(const Position3& p, float r) :radius(r), pos(p) {}
 	virtual bool IsHit(const Ray& ray, float& t)const override;
+	virtual Color GetColorAtPosition(const Position3& pos)override;
 };
 
 // 平面構造体
@@ -177,4 +192,7 @@ struct Plane : public Primitive{
 	Plane(const Vector3& inN,float ofst) : N(0, 1, 0), offset(ofst){}
 
 	bool IsHit(const Ray& ray, float& t)const;
+	virtual Color GetColorAtPosition(const Position3& pos)override;
+
+
 };
