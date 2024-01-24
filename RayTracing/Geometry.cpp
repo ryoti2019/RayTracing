@@ -206,9 +206,15 @@ bool Sphere::IsHit(const Ray& ray, float& t) const
 
 }
 
-Color Sphere::GetColorAtPosition(const Position3& pos)
+Color Sphere::GetColorAtPosition(const Position3& pos)const
 {
-	return Color();
+	return material.color;
+}
+
+Vector3 Sphere::GetNormalVector(const Position3& hitPos) const
+{
+	auto N = hitPos - pos;
+	return N.Normalized();
 }
 
 bool Plane::IsHit(const Ray& ray, float& t) const
@@ -231,7 +237,70 @@ bool Plane::IsHit(const Ray& ray, float& t) const
 
 }
 
-Color Plane::GetColorAtPosition(const Position3& pos)
+Color Plane::GetColorAtPosition(const Position3& pos)const
 {
-	return Color();
+	switch (material.pattern)
+	{
+	case Pattern::checker:
+		return GetCheckerColor(pos);
+	case Pattern::texture:
+		return GetImageColor(pos);	
+	default:
+		return material.color;
+	}
+}
+
+Vector3 Plane::GetNormalVector(const Position3& pos) const
+{
+	return Vector3();
+}
+
+Color
+Plane::GetCheckerColor(const Position3& pos)const {
+
+	int sign = 1;
+
+	if (((int)(pos.x / material.patternSize.w) + 
+		(int)(pos.z / material.patternSize.h)) % 2 == 0)
+	{
+		sign *= -1;
+	}
+	if (pos.x < 0.0f)
+	{
+		sign *= -1;
+	}
+	if (pos.z < 0.0f)
+	{
+		sign *= -1;
+	}
+	if (sign > 0)
+	{
+		return material.color;
+	}
+	else {
+		return material.subColor;
+	}
+}
+
+Color
+Plane::GetImageColor(const Position3& pos)const {
+
+	int x = pos.x / material.patternSize.w;
+	int y = pos.z / material.patternSize.h;
+
+	bool minus = y < 0;
+
+	int w, h;
+	GetSoftImageSize(material.textHandle, &w, &h);
+
+	float r, g, b, a;
+	x = abs(x);
+	y = abs(y);
+	if (minus) {
+		y = h - y % h;
+	}
+	GetPixelSoftImageF(material.textHandle, x % w, y % h, &r, &g, &b, &a);
+
+	return{ r,g,b };
+
 }

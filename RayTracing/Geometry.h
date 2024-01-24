@@ -71,7 +71,7 @@ struct Vector3 {
 	void operator-=(const Vector3& v);
 	void operator*=(float scale);
 	Vector3 operator*(float scale)const;
-	Vector3 operator-() {
+	Vector3 operator-()const {
 		return Vector3(-x, -y,-z);
 	}
 };
@@ -128,6 +128,8 @@ struct Rect {
 	void Draw(Vector2& offset);//自分の矩形を描画する(オフセット付き)
 };
 
+using Color = Vector3;
+
 // レイ(直線)を表す構造体
 struct Ray {
 	Position3 pos;	// レイの開始地点
@@ -136,26 +138,23 @@ struct Ray {
 
 enum class Pattern {
 	none,	//一色
-	hstripe,	// 水平綺模様
-	vstripe,
-	checker,
-	texture
+	hstripe,// 水平縞模様
+	vstripe,// 垂直縞模様
+	checker,// 炭次郎模様
+	texture	// テクスチャ
 };
 
-// Colorは色を0～1で表す
-using Color = Vector3;
-Color;
-
 struct Material {
-	Color color;	// 基本色
-	Color subColor;	// 副基本色
-	float ambient;	// 環境光
-	float speqular;	// スペキュラ
-	float speqularity;	// スペキュラ強さ
-	float reflectiveity;	// 反射率
+	Color color;		// 基本色
+	Color subColor;		// 副基本色
+	float ambient;		// 環境光
+	float specular;		// スペキュラ
+	float specularity;	// スペキュラ強さ
+	float reflectivity;	// 反射率
 	Pattern pattern;	// 模様
-	Size patternSize; //模様サイズ
-	int textHandle; //ハンドル
+	Size patternSize;	//模様サイズ
+	int textHandle;		//ハンドル
+	bool isNotShading = false;
 };
 
 // 物体の親クラス
@@ -168,7 +167,8 @@ struct Primitive{
 	/// <param name="t">光線の開始点から交点までの距離</param>
 	/// <returns>当たったかどうか</returns>
 	virtual bool IsHit(const Ray& ray, float& t)const = 0;
-	virtual Color GetColorAtPosition(const Position3& pos) = 0;
+	virtual Color GetColorAtPosition(const Position3& pos)const = 0;
+	virtual Vector3 GetNormalVector(const Position3& pos)const = 0;
 };
 
 ///球を表す構造体
@@ -178,21 +178,29 @@ struct Sphere : public Primitive {
 	Sphere() :radius(0), pos(0, 0, 0) {}
 	Sphere(const Position3& p, float r) :radius(r), pos(p) {}
 	virtual bool IsHit(const Ray& ray, float& t)const override;
-	virtual Color GetColorAtPosition(const Position3& pos)override;
+	virtual Color GetColorAtPosition(const Position3& pos)const override;
+	virtual Vector3 GetNormalVector(const Position3& pos)const override;
 };
 
 // 平面構造体
-struct Plane : public Primitive{
+struct Plane : public Primitive {
+
+
+
 	// 法線ベクトル
 	Vector3 N;
 	// 原点からのオフセット
 	float offset;
 
-	Plane() : N(0, 1, 0), offset(0.0f){}
-	Plane(const Vector3& inN,float ofst) : N(0, 1, 0), offset(ofst){}
+	Plane() : N(0, 1, 0), offset(0.0f) {}
+	Plane(const Vector3& inN, float ofst) : N(0, 1, 0), offset(ofst) {}
 
 	bool IsHit(const Ray& ray, float& t)const;
-	virtual Color GetColorAtPosition(const Position3& pos)override;
+	virtual Color GetColorAtPosition(const Position3& pos)const override;
+	virtual Vector3 GetNormalVector(const Position3& pos)const override;
+private:
 
+	Color GetCheckerColor(const Position3& pos)const;
+	Color GetImageColor(const Position3& pos)const;
 
 };

@@ -1,7 +1,9 @@
 #include<dxlib.h>
 #include <cmath>
 #include <algorithm>
+#include <vector>
 #include"Geometry.h"
+
 const int screen_width = 640;
 const int screen_height = 480;
 using namespace std;
@@ -92,61 +94,62 @@ float Saturate(float val)
 	return clamp(val, 0.0f, 1.0f);
 }
 
-// Colorは色を0～1で表す
-using Color = Vector3;
-Color
-GetCheckerColor(const Position3& pos) {
+using Primitives_t = std::vector<Primitive*>;
 
-	int sign = 1;
+bool TraceRay(const Ray& ray, const Vector3& light, Primitives_t& primitives, Color& retCol, Primitive* self = nullptr, int limit = 5) {
 
-	if (((int)(pos.x / 30.0f) + (int)(pos.z / 30.0f)) % 2 == 0)
-	{
-		sign *= -1;
+	for (auto& prim : primitives) {
+		float t;
+		if (prim == self) {
+			continue;
+		}
+		if (prim->IsHit(ray, t)) {
+
+			if (t < 0.0f) {
+				continue;
+			}
+			auto hitPos = ray.pos + ray.vec * t;
+			auto N = prim->GetNormalVector(hitPos);
+			retCol = prim->GetColorAtPosition(hitPos);
+
+			if (prim->material.isNotShading){
+				return true;
+			}
+
+			float diffuse = clamp(Dot(-light, N), 0.0f, 1.0f);
+			float ambient = prim->material.ambient;
+			diffuse = std::max(diffuse, ambient);
+
+			// まず反射ベクトルを求めます
+			auto R = RefrectVector(light, N);
+
+			float specular = pow(Saturate(Dot(R, -ray.vec)), 20.0f);
+			retCol *= diffuse;
+			retCol.x = std::clamp(retCol.x + specular,0.0f,1.0f);
+			retCol.y = std::clamp(retCol.y + specular,0.0f,1.0f);
+			retCol.z = std::clamp(retCol.z + specular,0.0f,1.0f);
+
+			if (prim->material.reflectivity > 0.0f) {
+				Ray refRay;
+				refRay.pos = hitPos;
+				refRay.vec = RefrectVector(ray.vec, N);
+				Color refCol = {};
+				if (TraceRay(refRay, light, primitives, refCol, prim, limit - 1)) {
+					retCol = retCol * (1.0f - prim->material.reflectivity) +
+						refCol * prim->material.reflectivity;
+				}
+			}
+			return true;
+		}
 	}
-	if (pos.x < 0.0f)
-	{
-		sign *= -1;
-	}
-	if (pos.z < 0.0f)
-	{
-		sign *= -1;
-	}
-	if (sign > 0)
-	{
-		return{ 1.0f,1.0f,0.0f };
-	}
-	else {
-		return{ 0.5f,0.5f,1.0f };
-	}
+	return false;
 }
 
-Color
-GetImageColor(const Position3& pos, int handle, float scale = 3.0f) {
-
-	int x = pos.x / scale;
-	int y = pos.z / scale;
-
-	bool minus = y < 0;
-
-	int w, h;
-	GetSoftImageSize(handle, &w, &h);
-
-	float r, g, b, a;
-	x = abs(x);
-	y = abs(y);
-	if (minus) {
-		y = h - y % h;
-	}
-	GetPixelSoftImageF(handle, x % w, y % h, &r, &g, &b, &a);
-
-	return{ r,g,b };
-
-}
 
 ///レイトレーシング
 ///@param eye 視点座標
 ///@param sphere 球オブジェクト(そのうち複数にする)
-void RayTracing(const Position3& eye, const Sphere& sphere, const Plane& plane) {
+void RayTracing(const Position3& eye,Primitives_t& primitives) {
 	Vector3 light = { 1, -1, -1 };
 	light.Normalize();
 	for (int y = 0; y < screen_height; ++y) {//スクリーン縦方向
@@ -162,81 +165,87 @@ void RayTracing(const Position3& eye, const Sphere& sphere, const Plane& plane) 
 			//③IsHitRay関数がTrueだったら白く塗りつぶす
 			//※塗りつぶしはDrawPixelという関数を使う。
 			float t = 0.0f;
-
-			// 球体との当たり判定
-			if (sphere.IsHit(ray,t)) {
-				//tの取りうる範囲が300～400と考えて色分けします
-				auto C = sphere.pos - eye;
-				auto N = ray.vec * t - C;
-				N.Normalize();
-
-				float diffuse = clamp(Dot(-light, N), 0.0f, 1.0f);
-				float ambient = 0.2;
-				diffuse = std::max(diffuse, ambient);
-
-				// まず反射ベクトルを求めます
-				auto R = RefrectVector(light, N);
-				float specular = pow(Saturate(Dot(R, -ray.vec)), 20.0f);
-				auto half = -(light + ray.vec);
-				//half.Normalize();
-				//float specular = pow(Saturate(Dot(half, N)), 40.0f);
-
-				Color col = { 1.0f,0.0f,0.0f };
-				col *= diffuse;
-
-				// 球体との交点が視点かつ、視線の反射ベクトルが次のレイになります
-				Ray refRay;
-				refRay.pos = eye + ray.vec * t;
-				refRay.vec = RefrectVector(ray.vec, N);
-
-				constexpr float reflectivity = 0.75;// 反射率
-
-				if (plane.IsHit(refRay, t))
-				{
-					auto pos = refRay.pos + refRay.vec * t;	// 床の座標
-					//auto refCol = GetCheckerColor(pos);
-					auto refCol = GetImageColor(pos,imgHandle);
-					col = col * (1.0f - reflectivity) + refCol * reflectivity;
-				}
-
-
-
-				DrawPixel(x, y, GetColor(
-					std::clamp((int)(col.x * 255 + specular * 255), 0, 255),
-					std::clamp((int)(col.y * 255 + specular * 255), 0, 255),
-					std::clamp((int)(col.z * 255 + specular * 255), 0, 255)
-				));
-
-			}
-			// 平面との当たり判定
-			else if (plane.IsHit(ray, t))
-			{
-				// 交点PはP = P0 + Vt
-				// P = eye + ray * t
-				//auto col = GetCheckerColor(pos);
-
-				Ray shadowRay;
-				shadowRay.pos = ray.pos + ray.vec * t;// 交点の座標
-				auto col = GetImageColor(shadowRay.pos, imgHandle);
-				shadowRay.vec = -light;
-				//①床と視線の交点を求める
-				//②そこから、光線ベクトルの逆ベクトルを飛ばす
-				//③交点と逆光ベクトルを用いてさらにレイトレする
-				//　(球体と交点を持つかチェック)
-				//④球体と当たってたら暗くする
-				//color *= 0.5
-
-				if (sphere.IsHit(ray, t))
-				{
-					col *= 0.5f;
-				}
-
+			Color col;
+			if (TraceRay(ray, light, primitives, col, nullptr, 5)) {
 				DrawPixel(x, y, GetColor(col.x * 255, col.y * 255, col.z * 255));
 			}
 			else {
 				int b = ((x / 32 + y / 32) % 2) * 255;
 				DrawPixel(x, y, GetColor(0, b, 0));
 			}
+			// 球体との当たり判定
+			//if (primitives[0]->IsHit(ray, t)) {
+			//	//tの取りうる範囲が300～400と考えて色分けします
+			//	auto hitPos = ray.pos + ray.vec * t;
+			//	auto N = primitives[0]->GetNormalVector(hitPos);
+
+			//	float diffuse = clamp(Dot(-light, N), 0.0f, 1.0f);
+			//	float ambient = 0.2;
+			//	diffuse = std::max(diffuse, ambient);
+
+			//	// まず反射ベクトルを求めます
+			//	auto R = RefrectVector(light, N);
+			//	float specular = pow(Saturate(Dot(R, -ray.vec)), 20.0f);
+			//	auto half = -(light + ray.vec);
+			//	//half.Normalize();
+			//	//float specular = pow(Saturate(Dot(half, N)), 40.0f);
+
+			//	
+			//	Color col = primitives[0]->GetColorAtPosition(hitPos);
+			//	col *= diffuse;
+
+			//	// 球体との交点が視点かつ、視線の反射ベクトルが次のレイになります
+			//	Ray refRay;
+			//	refRay.pos = hitPos;
+			//	refRay.vec = RefrectVector(ray.vec, N);
+
+			//	constexpr float reflectivity = 0.75;// 反射率
+			//	if (primitives[1]->IsHit(refRay, t))
+			//	{
+			//		auto pos = refRay.pos + refRay.vec * t;	// 床の座標
+			//		//auto refCol = GetCheckerColor(pos);
+			//		auto refCol = primitives[1]->GetColorAtPosition(pos);
+			//		col = col * (1.0f - reflectivity) + refCol * reflectivity;
+			//	}
+
+
+
+			//	DrawPixel(x, y, GetColor(
+			//		std::clamp((int)(col.x * 255 + specular * 255), 0, 255),
+			//		std::clamp((int)(col.y * 255 + specular * 255), 0, 255),
+			//		std::clamp((int)(col.z * 255 + specular * 255), 0, 255)
+			//	));
+
+			//}
+			//// 平面との当たり判定
+			//else if (primitives[1]->IsHit(ray, t))
+			//{
+			//	// 交点PはP = P0 + Vt
+			//	// P = eye + ray * t
+			//	//auto col = GetCheckerColor(pos);
+
+			//	Ray shadowRay;
+			//	shadowRay.pos = ray.pos + ray.vec * t;// 交点の座標
+			//	auto col = primitives[1]->GetColorAtPosition(shadowRay.pos);
+			//	shadowRay.vec = -light;
+			//	//①床と視線の交点を求める
+			//	//②そこから、光線ベクトルの逆ベクトルを飛ばす
+			//	//③交点と逆光ベクトルを用いてさらにレイトレする
+			//	//　(球体と交点を持つかチェック)
+			//	//④球体と当たってたら暗くする
+			//	//color *= 0.5
+
+			//	if (primitives[0]->IsHit(ray, t))
+			//	{
+			//		col *= 0.5f;
+			//	}
+
+			//	DrawPixel(x, y, GetColor(col.x * 255, col.y * 255, col.z * 255));
+			//}
+			//else {
+			//	int b = ((x / 32 + y / 32) % 2) * 255;
+			//	DrawPixel(x, y, GetColor(0, b, 0));
+			//}
 		}
 	}
 }
@@ -248,15 +257,41 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	DxLib_Init();
 	imgHandle = LoadSoftImage("img/dog.png");
 	Sphere sphere (Position3(0, 0, -100),100);
-	sphere material.color = {1.0f,0.0f,0.0f};
-	sphere material.ambient = 0.2f;
-	sphere material.specular = 1.0f;
-	sphere material.speqularity = 20.0f;
-	sphere material.
+	sphere.material.color = {1.0f,0.0f,0.0f};
+	sphere.material.ambient = 0.2f;
+	sphere.material.specular = 1.0f;
+	sphere.material.specularity = 20.0f;
+	sphere.material.reflectivity = 0.5f;
+
+	Sphere sphere2(Position3(200, 0, -100), 100);
+	sphere2.material.color = { 0.0f,1.0f,0.0f };
+	sphere2.material.ambient = 0.2f;
+	sphere2.material.specular = 1.0f;
+	sphere2.material.specularity = 20.0f;
+	sphere2.material.reflectivity = 0.5f;
+
+	Sphere sphere3(Position3(-200, 0, -100), 100);
+	sphere3.material.color = { 0.0f,0.0f,1.0f };
+	sphere3.material.ambient = 0.2f;
+	sphere3.material.specular = 1.0f;
+	sphere3.material.specularity = 20.0f;
+	sphere3.material.reflectivity = 0.5f;
 
 	Plane plane = { {0.0f,1.0f,0.0f},-100.0f };
+	plane.material.color = { 1.0f,1.0f,0.0f };
+	plane.material.subColor = { 1.0f,0.5f,0.0f };
+	plane.material.pattern = Pattern::texture;
+	plane.material.patternSize = { 2.0f,2.0f };
+	plane.material.textHandle = imgHandle;
+	plane.material.isNotShading = true;
+	
+	Primitives_t primitives;
+	primitives.push_back(&sphere);
+	primitives.push_back(&sphere2);
+	primitives.push_back(&sphere3);
+	primitives.push_back(&plane);
 
-	RayTracing(Vector3(0, 0, 300), Sphere(Position3(0, 0, -100), 100), plane);
+	RayTracing(Vector3(0, 0, 300), primitives);
 
 	WaitKey();
 	DxLib_End();
